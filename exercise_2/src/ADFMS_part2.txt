@@ -1,0 +1,257 @@
+/***********************************************************************
+ * FlightController Implementation
+ ***********************************************************************/
+
+FlightController::FlightController()
+{
+    missionActive = false;
+}
+
+/***********************************************************************
+ * Verify user authorization.
+ ***********************************************************************/
+bool FlightController::authorizeMission(User& user)
+{
+    if(user.getRole() == "Operator")
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/***********************************************************************
+ * Validate mission.
+ ***********************************************************************/
+bool FlightController::validateMission(Mission& mission)
+{
+    return mission.validateMission();
+}
+
+/***********************************************************************
+ * Calculate payload.
+ ***********************************************************************/
+int FlightController::calculatePayload(Mission& mission)
+{
+    int totalPayload;
+
+    totalPayload = mission.getPayloadWeight();
+
+    // Packaging weight
+    totalPayload += 5;
+
+    return totalPayload;
+}
+
+/***********************************************************************
+ * Upload mission to drone.
+ ***********************************************************************/
+bool FlightController::sendMission(Mission& mission)
+{
+    char destination[20];
+
+    strcpy(destination,
+           mission.getDestination().c_str());
+
+    cout << endl;
+    cout << "Uploading Mission..." << endl;
+
+    cout << "Mission ID   : "
+         << mission.getMissionID()
+         << endl;
+
+    cout << "Destination  : "
+         << destination
+         << endl;
+
+    cout << "Altitude     : "
+         << mission.getAltitude()
+         << " meters" << endl;
+
+    missionActive = true;
+
+    return true;
+}
+
+/***********************************************************************
+ * Emergency Stop
+ ***********************************************************************/
+void FlightController::emergencyStop()
+{
+    missionActive = false;
+
+    cout << endl;
+    cout << "*** EMERGENCY STOP ACTIVATED ***"
+         << endl;
+}
+
+/***********************************************************************
+ * Retrieve telemetry.
+ ***********************************************************************/
+void FlightController::getTelemetry()
+{
+    cout << endl;
+
+    cout << "========== Drone Telemetry =========="
+         << endl;
+
+    cout << "Battery     : 91%" << endl;
+    cout << "GPS         : Locked" << endl;
+    cout << "Altitude    : Stable" << endl;
+
+    cout << "Mission     : ";
+
+    if(missionActive)
+        cout << "ACTIVE";
+    else
+        cout << "IDLE";
+
+    cout << endl;
+}
+
+/***********************************************************************
+ * Abort Mission
+ ***********************************************************************/
+bool FlightController::abortMission(string reason)
+{
+    cout << endl;
+    cout << "Mission Aborted." << endl;
+
+    cout << "Reason : "
+         << reason
+         << endl;
+
+    emergencyStop();
+
+    return false;
+}
+
+/***********************************************************************
+ * Complete Mission Execution Pipeline
+ ***********************************************************************/
+bool FlightController::executeMission(User& user,
+                                      Mission& mission)
+{
+    cout << endl;
+    cout << "======================================" << endl;
+    cout << " AUTONOMOUS DRONE MISSION EXECUTION " << endl;
+    cout << "======================================" << endl;
+
+    //--------------------------------------------------
+    // Step 1 : Authenticate
+    //--------------------------------------------------
+
+    if(!auth.authenticate(user))
+    {
+        logger.logError("Authentication failed for user : "
+                        + user.getUsername());
+
+        return false;
+    }
+
+    cout << "Authentication Successful." << endl;
+
+    //--------------------------------------------------
+    // Step 2 : Authorization
+    //--------------------------------------------------
+
+    if(!authorizeMission(user))
+    {
+        logger.logError("Authorization Failed.");
+
+        return false;
+    }
+
+    cout << "Authorization Successful." << endl;
+
+    //--------------------------------------------------
+    // Step 3 : Mission Validation
+    //--------------------------------------------------
+
+    if(!validateMission(mission))
+    {
+        logger.logError("Mission Validation Failed.");
+
+        return false;
+    }
+
+    cout << "Mission Validation Successful."
+         << endl;
+
+    //--------------------------------------------------
+    // Step 4 : Payload Calculation
+    //--------------------------------------------------
+
+    int payload = calculatePayload(mission);
+
+    cout << "Verified Payload : "
+         << payload
+         << " kg"
+         << endl;
+
+    //--------------------------------------------------
+    // Step 5 : Upload Mission
+    //--------------------------------------------------
+
+    if(!sendMission(mission))
+    {
+        logger.logError("Mission Upload Failed.");
+
+        return false;
+    }
+
+    //--------------------------------------------------
+    // Step 6 : Telemetry
+    //--------------------------------------------------
+
+    getTelemetry();
+
+    //--------------------------------------------------
+    // Step 7 : Completion
+    //--------------------------------------------------
+
+    cout << endl;
+    cout << "Mission Completed Successfully."
+         << endl;
+
+    return true;
+}
+
+
+/***********************************************************************
+ * MAIN PROGRAM
+ ***********************************************************************/
+int main()
+{
+    cout << endl;
+    cout << "==========================================" << endl;
+    cout << " Autonomous Drone Fleet Management System " << endl;
+    cout << "==========================================" << endl;
+
+    User operator1("pilot1",
+                   "Drone@123");
+
+    Mission mission1(
+            1001,
+            "CityHospital",
+            120,
+            18.5);
+
+    FlightController controller;
+
+    if(controller.executeMission(operator1,
+                                 mission1))
+    {
+        cout << endl;
+        cout << "Mission Execution Successful."
+             << endl;
+    }
+    else
+    {
+        cout << endl;
+        cout << "Mission Execution Failed."
+             << endl;
+    }
+
+    return 0;
+}
